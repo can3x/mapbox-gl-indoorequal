@@ -608,6 +608,7 @@ class IndoorEqual {
     const defaultOpts = { heatmap: true };
     const opts = { ...defaultOpts, ...options };
     this.source = new SourceKlass(map, options);
+    this.sourceAux = [];
     this.map = map;
     this.levels = [];
     this.level = '0';
@@ -629,6 +630,7 @@ class IndoorEqual {
    */
   remove() {
     this.source.remove();
+    this.sourceAux.forEach((source) => source.remove());
     this._updateLevelsDebounce.clear();
     this.map.off('load', this._updateLevelsDebounce);
     this.map.off('data', this._updateLevelsDebounce);
@@ -755,6 +757,17 @@ class IndoorEqual {
     .forEach((layer) => {
       this.map.setFilter(layer.id, [ ...layer.filter || ['all'], ['==', 'level', this.level]]);
     });
+
+    this.sourceAux.forEach((source) => {
+      source.layers
+        .filter((layer) => layer.type !== "heatmap")
+        .forEach((layer) => {
+          this.map.setFilter(layer.id, [
+            ...(layer.filter || ["all"]),
+            ["==", "level", this.level],
+          ]);
+        });
+    });
   }
 
   _refreshAfterLevelsUpdate() {
@@ -773,6 +786,19 @@ class IndoorEqual {
         this._refreshAfterLevelsUpdate();
       }
     }
+    // this.sourceAux.forEach((source) => {
+    //   if (this.map.isSourceLoaded(source.sourceId)) {
+    //     const features = this.map.querySourceFeatures(source.sourceId, {
+    //       sourceLayer: "area",
+    //     });
+    //     const levels = findAllLevels(features);
+    //     if (!arrayEqual(levels, this.levels)) {
+    //       this.levels = levels;
+    //       this._emitLevelsChange();
+    //       this._refreshAfterLevelsUpdate();
+    //     }
+    //   }
+    // });
   }
 
   _emitLevelsChange() {

@@ -3,11 +3,6 @@
 var debounce = require('debounce');
 var arrayEqual = require('array-equal');
 
-function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
-
-var debounce__default = /*#__PURE__*/_interopDefaultLegacy(debounce);
-var arrayEqual__default = /*#__PURE__*/_interopDefaultLegacy(arrayEqual);
-
 function findAllLevels(features) {
   const levels = [];
   for (let i = 0; i < features.length; i++) {
@@ -615,6 +610,7 @@ class IndoorEqual {
     const defaultOpts = { heatmap: true };
     const opts = { ...defaultOpts, ...options };
     this.source = new SourceKlass(map, options);
+    this.sourceAux = [];
     this.map = map;
     this.levels = [];
     this.level = '0';
@@ -636,6 +632,7 @@ class IndoorEqual {
    */
   remove() {
     this.source.remove();
+    this.sourceAux.forEach((source) => source.remove());
     this._updateLevelsDebounce.clear();
     this.map.off('load', this._updateLevelsDebounce);
     this.map.off('data', this._updateLevelsDebounce);
@@ -746,7 +743,7 @@ class IndoorEqual {
     this.source.addSource();
     this.source.addLayers();
     this._updateFilters();
-    this._updateLevelsDebounce = debounce__default["default"](this._updateLevels.bind(this), 1000);
+    this._updateLevelsDebounce = debounce(this._updateLevels.bind(this), 1000);
 
     this.map.on('load', this._updateLevelsDebounce);
     this.map.on('data', this._updateLevelsDebounce);
@@ -762,6 +759,17 @@ class IndoorEqual {
     .forEach((layer) => {
       this.map.setFilter(layer.id, [ ...layer.filter || ['all'], ['==', 'level', this.level]]);
     });
+
+    this.sourceAux.forEach((source) => {
+      source.layers
+        .filter((layer) => layer.type !== "heatmap")
+        .forEach((layer) => {
+          this.map.setFilter(layer.id, [
+            ...(layer.filter || ["all"]),
+            ["==", "level", this.level],
+          ]);
+        });
+    });
   }
 
   _refreshAfterLevelsUpdate() {
@@ -774,12 +782,25 @@ class IndoorEqual {
     if (this.map.isSourceLoaded(this.source.sourceId)) {
       const features = this.map.querySourceFeatures(this.source.sourceId, { sourceLayer: 'area' });
       const levels = findAllLevels(features);
-      if (!arrayEqual__default["default"](levels, this.levels)) {
+      if (!arrayEqual(levels, this.levels)) {
         this.levels = levels;
         this._emitLevelsChange();
         this._refreshAfterLevelsUpdate();
       }
     }
+    // this.sourceAux.forEach((source) => {
+    //   if (this.map.isSourceLoaded(source.sourceId)) {
+    //     const features = this.map.querySourceFeatures(source.sourceId, {
+    //       sourceLayer: "area",
+    //     });
+    //     const levels = findAllLevels(features);
+    //     if (!arrayEqual(levels, this.levels)) {
+    //       this.levels = levels;
+    //       this._emitLevelsChange();
+    //       this._refreshAfterLevelsUpdate();
+    //     }
+    //   }
+    // });
   }
 
   _emitLevelsChange() {
