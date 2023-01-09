@@ -828,4 +828,4 @@ class IndoorEqual {
  * @type {string} always emitted when the level displayed has changed
  */
 
-export { IndoorEqual as default };
+export { GeoJSONSource, VectorTileSource, IndoorEqual as default };
