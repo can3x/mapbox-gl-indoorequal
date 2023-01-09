@@ -566,7 +566,7 @@ class VectorTileSource {
     const queryParams = this.apiKey ? `?key=${this.apiKey}` : '';
     this.map.addSource(this.sourceId, {
       type: 'vector',
-      url: `${this.url}${queryParams}`
+      tiles: [`${this.url}${queryParams}`]
     });
   }
 
@@ -608,7 +608,7 @@ class IndoorEqual {
     const defaultOpts = { heatmap: true };
     const opts = { ...defaultOpts, ...options };
     this.source = new SourceKlass(map, options);
-    this.sourceAux = [];
+    this.sourceAux = null;
     this.map = map;
     this.levels = [];
     this.level = '0';
@@ -630,7 +630,7 @@ class IndoorEqual {
    */
   remove() {
     this.source.remove();
-    this.sourceAux.forEach((source) => source.remove());
+    this.sourceAux && this.sourceAux.remove();
     this._updateLevelsDebounce.clear();
     this.map.off('load', this._updateLevelsDebounce);
     this.map.off('data', this._updateLevelsDebounce);
@@ -661,7 +661,7 @@ class IndoorEqual {
     if (!this.events[name]) {
       this.events[name] = [];
     }
-    this.events[name] = this.events[name].filter(cb => cb !== fn);
+    this.events[name] = this.events[name].filter((cb) => cb !== fn);
   }
 
   /**
@@ -713,18 +713,29 @@ class IndoorEqual {
    */
   loadSprite(baseUrl, options = {}) {
     const opts = { update: false, ...options };
-    return loadSprite(baseUrl)
-      .then((sprite) => {
-        for (const id in sprite) {
-          const { data, ...options } = sprite[id];
-          if (!this.map.hasImage(id)) {
-            this.map.addImage(id, data, options);
-          } else if (opts.update) {
-            this.map.updateImage(id, data);
-          }
+    return loadSprite(baseUrl).then((sprite) => {
+      for (const id in sprite) {
+        const { data, ...options } = sprite[id];
+        if (!this.map.hasImage(id)) {
+          this.map.addImage(id, data, options);
+        } else if (opts.update) {
+          this.map.updateImage(id, data);
         }
-        return sprite;
-      });
+      }
+      return sprite;
+    });
+  }
+
+  setAuxSource(options) {
+    if (this.sourceAux) {
+      this.sourceAux.remove();
+    }
+
+    this.sourceAux = new GeoJSONSource(this.map, options);
+    this.sourceAux.addSource();
+    this.sourceAux.addLayers();
+
+    this._updateFilters();
   }
 
   /**
@@ -753,21 +764,17 @@ class IndoorEqual {
 
   _updateFilters() {
     this.source.layers
-    .filter(layer => layer.type !== 'heatmap')
-    .forEach((layer) => {
-      this.map.setFilter(layer.id, [ ...layer.filter || ['all'], ['==', 'level', this.level]]);
-    });
+      .filter((layer) => layer.type !== 'heatmap')
+      .forEach((layer) => {
+        this.map.setFilter(layer.id, [...(layer.filter || ['all']), ['==', 'level', this.level]]);
+      });
 
-    this.sourceAux.forEach((source) => {
-      source.layers
-        .filter((layer) => layer.type !== "heatmap")
+    this.sourceAux &&
+      this.sourceAux.layers
+        .filter((layer) => layer.type !== 'heatmap')
         .forEach((layer) => {
-          this.map.setFilter(layer.id, [
-            ...(layer.filter || ["all"]),
-            ["==", "level", this.level],
-          ]);
+          this.map.setFilter(layer.id, [...(layer.filter || ['all']), ['==', 'level', this.level]]);
         });
-    });
   }
 
   _refreshAfterLevelsUpdate() {
@@ -778,7 +785,9 @@ class IndoorEqual {
 
   _updateLevels() {
     if (this.map.isSourceLoaded(this.source.sourceId)) {
-      const features = this.map.querySourceFeatures(this.source.sourceId, { sourceLayer: 'area' });
+      const features = this.map.querySourceFeatures(this.source.sourceId, {
+        sourceLayer: 'area'
+      });
       const levels = findAllLevels(features);
       if (!arrayEqual(levels, this.levels)) {
         this.levels = levels;
@@ -786,19 +795,6 @@ class IndoorEqual {
         this._refreshAfterLevelsUpdate();
       }
     }
-    // this.sourceAux.forEach((source) => {
-    //   if (this.map.isSourceLoaded(source.sourceId)) {
-    //     const features = this.map.querySourceFeatures(source.sourceId, {
-    //       sourceLayer: "area",
-    //     });
-    //     const levels = findAllLevels(features);
-    //     if (!arrayEqual(levels, this.levels)) {
-    //       this.levels = levels;
-    //       this._emitLevelsChange();
-    //       this._refreshAfterLevelsUpdate();
-    //     }
-    //   }
-    // });
   }
 
   _emitLevelsChange() {
@@ -810,7 +806,7 @@ class IndoorEqual {
   }
 
   _emitEvent(eventName, ...args) {
-    (this.events[eventName] || []).forEach(fn => fn(...args));
+    (this.events[eventName] || []).forEach((fn) => fn(...args));
   }
 }
 
@@ -828,4 +824,4 @@ class IndoorEqual {
  * @type {string} always emitted when the level displayed has changed
  */
 
-export { GeoJSONSource, VectorTileSource, IndoorEqual as default };
+export { IndoorEqual as default };
