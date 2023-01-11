@@ -32,11 +32,14 @@ class GeoJSONSource {
       return sourceLayers.includes(layer['source-layer']);
     });
     this.layers.forEach((layer) => {
-      this.map.addLayer({
-        source: `${this.baseSourceId}_${layer['source-layer']}`,
-        ...layer,
-        'source-layer': ''
-      });
+      this.map.addLayer(
+        {
+          source: `${this.baseSourceId}_${layer['source-layer']}`,
+          ...layer,
+          'source-layer': ''
+        },
+        optons.beforeId
+      );
     });
   }
 
