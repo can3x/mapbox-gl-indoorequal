@@ -14,6 +14,7 @@ class GeoJSONSource {
     this.layers = opts.layers;
     this.baseSourceId = 'indoorequal';
     this.sourceId = `${this.baseSourceId}_area`;
+    this.beforeId = opts.beforeId || '';
   }
 
   addSource() {
@@ -38,7 +39,7 @@ class GeoJSONSource {
           ...layer,
           'source-layer': ''
         },
-        optons.beforeId
+        this.beforeId
       );
     });
   }
